@@ -1,0 +1,228 @@
+---
+title: "Charles Armentrout ST 558 Project 1"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+This document goes over the data processing, combining, and visualization steps undertaken for Project 1 of ST 558. This project involves analyzing educational enrollment data across various geographic areas and years.
+
+# Data Processing Functions
+
+The process_data_step_1_2 function selects columns (Area_name, STCOU, and columns ending with "D") and reshapes the data using pivot_longer to a more convenient tidy format for further analysis. The function process_data_step_3 extracts the year from the "Item ID" column, converting two-digit years to full years like 1986 or 2000 for example. It also categorizes data based on the measurement type by using the sub string function to pull out the first 7 characters from the Item ID column. The process_data_step_5 function adds a new column called state_abbr  to the county_data data set which is pulled from a sub string of the column area_name. The process_data_step_6 function adds a new column called division which is based off a row's area_name value. This area_name value determines the division value for that row or for which division of the country that state is located. The combined function process_data_step_4_5_6 splits the processed data into county and non-county data sets in step 4 based on the presence of state abbreviations in area_name. It  then assigns class attributes and categorizes non-county areas into divisions. The my_wrapper function reads in the data and pulls all those functions stated above together into one singular function.
+```{r}
+# load in necessary packages
+library(tidyverse)
+library(tools)
+library(scales)
+# function for steps 1 & 2
+process_data_step_1_2 <- function(data, value_column = "Enrollment") {
+  processed_data <- data |>
+    select(area_name = Area_name, STCOU, ends_with("D")) |>
+    pivot_longer(cols = 3:12, names_to = "Item ID", values_to = value_column) 
+  return(processed_data)
+}
+# function for step 3
+process_data_step_3 <- function(processed_data) {
+  processed_data <- processed_data |>
+    mutate(
+      year = as.numeric(substr(`Item ID`, 8,9)), year = case_when(
+        year < 20 ~ 2000 + year,  # convert years like 00-19 to 2000-2019
+        year >= 20 & year <= 99 ~ 1900 + year  # convert years like 20-99 to 1920-1999
+      ),
+      measurement_type = substr(`Item ID`, 1, 7)
+    )
+  return(processed_data)
+}
+# function for step 5
+process_data_step_5 <- function(county_data) {
+  county_data <- county_data |>
+    mutate(state_abbr = substr(area_name, nchar(area_name) - 1, nchar(area_name)))
+  return(county_data)
+}
+# function for step 6
+process_data_step_6 <- function(non_county_data) {
+  non_county_data <- non_county_data |>
+    mutate(
+      division = case_when(
+        area_name %in% c("UNITED STATES") ~ "ERROR",
+        area_name %in% c("CONNECTICUT", "MAINE", "MASSACHUSETTS", "NEW HAMPSHIRE", "RHODE ISLAND", "VERMONT") ~ "New England",
+        area_name %in% c("NEW JERSEY", "NEW YORK", "PENNSYLVANIA") ~ "Middle Atlantic",
+        area_name %in% c("ILLINOIS", "INDIANA", "MICHIGAN", "OHIO", "WISCONSIN") ~ "East North Central",
+        area_name %in% c("IOWA", "KANSAS", "MINNESOTA", "MISSOURI", "NEBRASKA", "NORTH DAKOTA", "SOUTH DAKOTA") ~ "West North Central",
+        area_name %in% c("DELAWARE", "FLORIDA", "GEORGIA", "MARYLAND", "NORTH CAROLINA", "SOUTH CAROLINA", "VIRGINIA", "WEST VIRGINIA") ~ "South Atlantic",
+        area_name %in% c("ALABAMA", "KENTUCKY", "MISSISSIPPI", "TENNESSEE") ~ "East South Central",
+        area_name %in% c("ARKANSAS", "LOUISIANA", "OKLAHOMA", "TEXAS") ~ "West South Central",
+        area_name %in% c("ARIZONA", "COLORADO", "IDAHO", "MONTANA", "NEVADA", "NEW MEXICO", "UTAH", "WYOMING") ~ "Mountain",
+        area_name %in% c("ALASKA", "CALIFORNIA", "HAWAII", "OREGON", "WASHINGTON") ~ "Pacific"
+      )
+    )
+  return(non_county_data)
+}
+# function for step 4,5,6
+process_data_step_4_5_6 <- function(processed_data) {
+  county_data <- processed_data |>
+    filter(grepl(", \\w\\w", area_name))
+  
+  non_county_data <- processed_data |>
+    filter(!grepl(", \\w\\w", area_name))
+  
+  class(county_data) <- c("county", class(county_data))
+  class(non_county_data) <- c("state", class(non_county_data))
+  
+  county_data <- process_data_step_5(county_data)
+  non_county_data <- process_data_step_6(non_county_data)
+  
+  return(list(county_data = county_data, non_county_data = non_county_data))
+}
+# wrapper function
+my_wrapper <- function(url, default_var_name = "Enrollment") {
+  data <- read_csv(url)
+  result <- process_data_step_1_2(data, value_column = default_var_name) |>
+    process_data_step_3() |>
+    process_data_step_4_5_6()
+  
+  return(result)
+}
+```
+
+# Combining Data Functions
+
+The combine_results function merges data from multiple sources into county and non-county data sets. This ensures we are able to adjust the scope of our analysis at the state or regional level.
+```{r}
+# URLs for the CSV files
+url1 <- "https://www4.stat.ncsu.edu/~online/datasets/EDU01a.csv"
+url2 <- "https://www4.stat.ncsu.edu/~online/datasets/EDU01b.csv"
+
+# call my_wrapper function for both URLs
+result1 <- my_wrapper(url1)
+result2 <- my_wrapper(url2)
+
+
+# function to combine two sets of tibbles
+combine_results <- function(result1, result2) {
+  combined_county_data <- bind_rows(result1$county_data, result2$county_data)
+  combined_non_county_data <- bind_rows(result1$non_county_data, result2$non_county_data)
+  return(list(county_data = combined_county_data, non_county_data = combined_non_county_data))
+}
+combined_results <- combine_results(result1, result2)
+# access the combined tibbles
+combined_county_data <- combined_results$county_data
+combined_non_county_data <- combined_results$non_county_data
+combined_county_data
+combined_non_county_data
+```
+
+# Generic Functions
+
+## Plotting Functions
+
+The plot.state function visualizes mean enrollment values across years by division (region in country). The plot.county function visualizes the enrollment values over years of a specified number of top or bottom counties based on mean enrollment values with the specified number and state based on user input. In simple terms, it is used look at enrollment variation of different counties in a single state over time.
+```{r}
+plot.state <- function(df, var_name = "Enrollment") {
+  
+  df <- df |>
+    filter(division != "ERROR") |>
+    group_by(year, division) |>
+    summarize(mean_value = mean(get(var_name), na.rm = TRUE))
+  
+  # plotting
+  ggplot(df, aes(x = year, y = mean_value, group = division, color = division)) +     geom_line() +
+    geom_point() +
+    scale_y_continuous(labels = scales::comma_format()) +
+    labs(title = "Mean Enrollment Across Years by Division",
+         x = "Year", y = "Mean Enrollment Value", color = "Division") +
+    theme_minimal()
+}
+plot.county <- function(df, state = "AL", top_bottom = "top", num_counties = 5, var_name = "Enrollment") 
+  {
+  # filtering data by state input parameter
+  df <- df |>
+    filter(state_abbr == state)
+  
+  # overall mean of statistic calculation
+  mean_value <- df |>
+    group_by(area_name)|>
+    summarize(mean_stat = mean(get(var_name), na.rm = TRUE))
+  
+  # filtering data based on top_bottom
+  if (top_bottom == "top") {
+    tops <- mean_value |>
+      arrange(desc(mean_stat)) |>
+      slice_head(n = num_counties)
+  } 
+  else  {
+    tops <- mean_value |>
+      arrange(mean_stat) |>
+      slice_head(n = num_counties)
+  }
+  
+  df_plot <- df |>
+    filter(area_name %in% tops$area_name)
+  # plotting
+  ggplot(df_plot, aes(x = year, y = Enrollment, color = area_name)) +
+    geom_line() + 
+    scale_y_continuous(labels = scales::comma_format()) +
+    labs(title = paste(toTitleCase(top_bottom), num_counties, "Counties in", state, "by Mean Enrollment Across Years"), x = "Year", y = "Enrollment Value", color = "County, ST") +
+    geom_point() +
+    theme_minimal()
+}
+```
+
+# Putting it all together
+
+The document concludes by demonstrating the application of the functions above on real-life datasets with the first two dealing with enrollment statistics and the next four dealing with resident total population estimates. It combines and visualizes data across a number of different states and regions, showing the versatility of these functions in analyzing educational and population trends.
+```{r}
+# URLs for the first set of CSV files
+url1 <- "https://www4.stat.ncsu.edu/~online/datasets/EDU01a.csv"
+url2 <- "https://www4.stat.ncsu.edu/~online/datasets/EDU01b.csv"
+
+# call my_wrapper function for both URLs
+result1 <- my_wrapper(url1)
+result2 <- my_wrapper(url2)
+
+# combine results
+combined_results <- combine_results(result1, result2)
+
+# access the combined tibbles
+combined_county_data <- combined_results$county_data
+combined_non_county_data <- combined_results$non_county_data
+
+# plotting state data
+plot.state(combined_non_county_data)
+
+# plotting county data
+plot.county(combined_county_data, state = "NC", top_bottom = "top", num_counties = 20)
+plot.county(combined_county_data, state = "SC", top_bottom = "bottom", num_counties = 7)
+plot.county(combined_county_data)
+plot.county(combined_county_data, state = "PA", top_bottom = "top", num_counties = 8)
+
+# URLs for the additional CSV files
+url3 <- "https://www4.stat.ncsu.edu/~online/datasets/PST01a.csv"
+url4 <- "https://www4.stat.ncsu.edu/~online/datasets/PST01b.csv"
+url5 <- "https://www4.stat.ncsu.edu/~online/datasets/PST01c.csv"
+url6 <- "https://www4.stat.ncsu.edu/~online/datasets/PST01d.csv"
+
+# call my_wrapper function for all URLs
+result3 <- my_wrapper(url3)
+result4 <- my_wrapper(url4)
+result5 <- my_wrapper(url5)
+result6 <- my_wrapper(url6)
+
+# combine results
+combined_results2 <- combine_results(combine_results(result3, result4), combine_results(result5, result6))
+
+# access the combined tibbles
+combined_county_data2 <- combined_results2$county_data
+combined_non_county_data2 <- combined_results2$non_county_data
+
+# plotting state data
+plot.state(combined_non_county_data2)
+
+# plotting county data
+plot.county(combined_county_data2, state = "CA", top_bottom = "top", num_counties = 15)
+plot.county(combined_county_data2, state = "TX", top_bottom = "top", num_counties = 4)
+plot.county(combined_county_data2)
+plot.county(combined_county_data2, state = "NY", top_bottom = "top", num_counties = 10)
+```
