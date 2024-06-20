@@ -1,0 +1,16 @@
+[
+  {
+    "objectID": "Project1.html",
+    "href": "Project1.html",
+    "title": "Charles Armentrout ST 558 Project 1",
+    "section": "",
+    "text": "This document goes over the data processing, combining, and visualization steps undertaken for Project 1 of ST 558. This project involves analyzing educational enrollment data across various geographic areas and years."
+  },
+  {
+    "objectID": "Project1.html#plotting-functions",
+    "href": "Project1.html#plotting-functions",
+    "title": "Charles Armentrout ST 558 Project 1",
+    "section": "Plotting Functions",
+    "text": "Plotting Functions\nThe plot.state function visualizes mean enrollment values across years by division (region in country). The plot.county function visualizes the enrollment values over years of a specified number of top or bottom counties based on mean enrollment values with the specified number and state based on user input. In simple terms, it is used look at enrollment variation of different counties in a single state over time.\n\nplot.state &lt;- function(df, var_name = \"Enrollment\") {\n  \n  df &lt;- df |&gt;\n    filter(division != \"ERROR\") |&gt;\n    group_by(year, division) |&gt;\n    summarize(mean_value = mean(get(var_name), na.rm = TRUE))\n  \n  # plotting\n  ggplot(df, aes(x = year, y = mean_value, group = division, color = division)) +     geom_line() +\n    geom_point() +\n    scale_y_continuous(labels = scales::comma_format()) +\n    labs(title = \"Mean Enrollment Across Years by Division\",\n         x = \"Year\", y = \"Mean Enrollment Value\", color = \"Division\") +\n    theme_minimal()\n}\nplot.county &lt;- function(df, state = \"AL\", top_bottom = \"top\", num_counties = 5, var_name = \"Enrollment\") \n  {\n  # filtering data by state input parameter\n  df &lt;- df |&gt;\n    filter(state_abbr == state)\n  \n  # overall mean of statistic calculation\n  mean_value &lt;- df |&gt;\n    group_by(area_name)|&gt;\n    summarize(mean_stat = mean(get(var_name), na.rm = TRUE))\n  \n  # filtering data based on top_bottom\n  if (top_bottom == \"top\") {\n    tops &lt;- mean_value |&gt;\n      arrange(desc(mean_stat)) |&gt;\n      slice_head(n = num_counties)\n  } \n  else  {\n    tops &lt;- mean_value |&gt;\n      arrange(mean_stat) |&gt;\n      slice_head(n = num_counties)\n  }\n  \n  df_plot &lt;- df |&gt;\n    filter(area_name %in% tops$area_name)\n  # plotting\n  ggplot(df_plot, aes(x = year, y = Enrollment, color = area_name)) +\n    geom_line() + \n    scale_y_continuous(labels = scales::comma_format()) +\n    labs(title = paste(toTitleCase(top_bottom), num_counties, \"Counties in\", state, \"by Mean Enrollment Across Years\"), x = \"Year\", y = \"Enrollment Value\", color = \"County, ST\") +\n    geom_point() +\n    theme_minimal()\n}"
+  }
+]
