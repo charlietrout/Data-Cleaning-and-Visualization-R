@@ -4,7 +4,7 @@
     "href": "Project1.html",
     "title": "Charles Armentrout ST 558 Project 1",
     "section": "",
-    "text": "This document goes over the data processing, combining, and visualization steps undertaken for Project 1 of ST 558. This project involves analyzing educational enrollment data across various geographic areas and years."
+    "text": "This quarto doc goes over the data processing, combining, and visualization steps undertaken for Project 1 of ST 558. This project involves analyzing educational enrollment data across various geographic areas and years."
   },
   {
     "objectID": "Project1.html#plotting-functions",

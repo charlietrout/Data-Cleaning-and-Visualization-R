@@ -6,7 +6,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-This document goes over the data processing, combining, and visualization steps undertaken for Project 1 of ST 558. This project involves analyzing educational enrollment data across various geographic areas and years.
+This quarto doc goes over the data processing, combining, and visualization steps undertaken for Project 1 of ST 558. This project involves analyzing educational enrollment data across various geographic areas and years.
 
 # Data Processing Functions
 
